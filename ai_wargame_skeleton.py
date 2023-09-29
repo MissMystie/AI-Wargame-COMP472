@@ -98,6 +98,24 @@ class Unit:
         if target.health + amount > 9:
             return 9 - target.health
         return amount
+    
+    def is_in_battle(self, coord : Coord):
+        """NEW: Checks if the unit is in combat"""
+
+        Checks = (Coord) [(self.row-1,self.col), (self.row,self.col-1), (self.row+1,self.col), (self.row,self.col+1)]
+
+        for i in range(Checks):
+            coord2 = Checks[i]
+            if self.is_valid_coord(coord2) is not None:
+                if coord2 is not None and coord.player != coord2.player:
+                    return True
+        return False
+    
+    def is_restricted_movement(self, coord : Coord):
+        """NEW: Checks if the unit is able to move"""
+        if self.is_in_battle(coord) is True and self(coord) is not UnitType.Tech and self(coord) is not UnitType.Virus:
+            return True
+        return False
 
 ##############################################################################################################
 
@@ -315,6 +333,8 @@ class Game:
             return False
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
+            return False
+        if self.is_restricted_movement(coords.src) is not False:
             return False
         unit = self.get(coords.dst)
         return (unit is None)
@@ -592,3 +612,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
