@@ -4,6 +4,7 @@ import copy
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
+
 from time import sleep
 from typing import Tuple, TypeVar, Type, Iterable, ClassVar
 import random
@@ -32,6 +33,7 @@ class Player(Enum):
             return Player.Defender
         else:
             return Player.Attacker
+
 
 class GameType(Enum):
     AttackerVsDefender = 0
@@ -99,6 +101,7 @@ class Unit:
             return 9 - target.health
         return amount
 
+
 ##############################################################################################################
 
 @dataclass(slots=True)
@@ -111,14 +114,14 @@ class Coord:
         """Text representation of this Coord's column."""
         coord_char = '?'
         if self.col < 16:
-                coord_char = "0123456789abcdef"[self.col]
+            coord_char = "0123456789abcdef"[self.col]
         return str(coord_char)
 
     def row_string(self) -> str:
         """Text representation of this Coord's row."""
         coord_char = '?'
         if self.row < 26:
-                coord_char = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[self.row]
+            coord_char = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[self.row]
         return str(coord_char)
 
     def to_string(self) -> str:
@@ -237,6 +240,7 @@ class Stats:
 
 ##############################################################################################################
 
+
 @dataclass(slots=True)
 class Game:
     """Representation of the game state."""
@@ -286,7 +290,7 @@ class Game:
         else:
             return None
 
-    def set(self, coord : Coord, unit : Unit | None):
+    def set(self, coord: Coord, unit: Unit | None):
         """Set contents of a board cell of the game at Coord."""
         if self.is_valid_coord(coord):
             self.board[coord.row][coord.col] = unit
@@ -533,7 +537,6 @@ class Game:
             print(f"Broker error: {error}")
         return None
 
-
     def is_in_battle(self, coord : Coord):
         """NEW: Checks if the unit is in combat"""
 
@@ -628,4 +631,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
