@@ -4,7 +4,6 @@ import copy
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-
 from time import sleep
 from typing import Tuple, TypeVar, Type, Iterable, ClassVar
 import random
@@ -318,6 +317,8 @@ class Game:
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
         unit = self.get(coords.src)
+        if self.get(coords.src) == self.get(coords.dst):
+            return True
         if unit is None or unit.player != self.next_player:
             return False
         if self.is_restricted_movement(coords.src) is not False:
@@ -328,9 +329,9 @@ class Game:
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
-            #if coords.src == coords.dst:
-            #    self.self_destruct(coords.src)
-            #    return (True, "")
+            if coords.src == coords.dst:
+                self.self_destruct(coords.src)
+                return (True, "")
             self.set(coords.dst,self.get(coords.src))
             self.set(coords.src,None)
             return (True,"")
@@ -557,15 +558,17 @@ class Game:
                 return True
         return False
     
-    #def self_destruct(self, coord : Coord):
-    #    """NEW: self destructs hurting all units around it"""
-    #
-    #    tmp = Coord(coord.row, coord.col)
-    #    for tmp in tmp.iter_range():
-    #        unit = self.get(tmp)
-    #        if self.is_valid_coord(tmp) and u:
-    #            unit.mod_health(-2)
-    #            if
+    def self_destruct(self, coord : Coord):
+        """NEW: self destructs hurting all units around it"""
+        tmp = Coord(coord.row, coord.col)
+        for tmp in tmp.iter_range(1):
+            if self.is_valid_coord(tmp):
+                if self.is_empty(tmp) is not None:
+                    self.mod_health(tmp,-2)
+                    self.remove_dead(tmp)
+        self.mod_health(coord, -10)
+        self.remove_dead(coord)
+                
 
 ##############################################################################################################
 
