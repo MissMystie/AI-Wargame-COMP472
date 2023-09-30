@@ -22,6 +22,15 @@ class UnitType(Enum):
     Program = 3
     Firewall = 4
 
+
+class MoveType(Enum):
+    """NEW: Every action type."""
+    Invalid = 0
+    Movement = 1
+    Attack = 2
+    Repair = 3
+    SelfDestruct = 4
+
 class Player(Enum):
     """The 2 players."""
     Attacker = 0
@@ -104,6 +113,7 @@ class Unit:
 
 ##############################################################################################################
 
+
 @dataclass(slots=True)
 class Coord:
     """Representation of a game cell coordinate (row, col)."""
@@ -165,6 +175,7 @@ class Coord:
 
 ##############################################################################################################
 
+
 @dataclass(slots=True)
 class CoordPair:
     """Representation of a game move or a rectangular area via 2 Coords."""
@@ -217,6 +228,7 @@ class CoordPair:
 
 ##############################################################################################################
 
+
 @dataclass(slots=True)
 class Options:
     """Representation of the game options."""
@@ -231,6 +243,7 @@ class Options:
     broker : str | None = None
 
 ##############################################################################################################
+
 
 @dataclass(slots=True)
 class Stats:
@@ -313,17 +326,30 @@ class Game:
             target.mod_health(health_delta)
             self.remove_dead(coord)
 
-    def is_valid_move(self, coords : CoordPair) -> bool:
+    def is_valid_move(self, coords : CoordPair) -> MoveType:
         """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
-            return False
+            return MoveType.Invalid
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
-            return False
+            return MoveType.Invalid
         if self.is_restricted_movement(coords.src) is not False:
-            return False
-        unit = self.get(coords.dst)
-        return (unit is None)
+            return MoveType.Invalid
+
+        target = self.get(coords.dst)
+        #if moving to an empty slot, return Movement
+        if target is None:
+            return MoveType.Movement
+        #if moving to a slot with an enemy unit, return Attack
+        elif target.player != self.next_player:
+            return MoveType.Attack
+            # if moving to a slot with an ally unit, return Repair
+        elif target.player == self.next_player:
+            return MoveType.Repair
+        elif target == unit:
+            return MoveType.SelfDestruct
+
+        return target is None
 
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
