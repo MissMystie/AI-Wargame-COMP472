@@ -21,15 +21,6 @@ class UnitType(Enum):
     Program = 3
     Firewall = 4
 
-
-class MoveType(Enum):
-    """NEW: Every action type."""
-    Invalid = 0
-    Movement = 1
-    Attack = 2
-    Repair = 3
-    SelfDestruct = 4
-
 class Player(Enum):
     """The 2 players."""
     Attacker = 0
@@ -42,7 +33,6 @@ class Player(Enum):
         else:
             return Player.Attacker
 
-
 class GameType(Enum):
     AttackerVsDefender = 0
     AttackerVsComp = 1
@@ -51,11 +41,14 @@ class GameType(Enum):
 
 ##############################################################################################################
 
+
 @dataclass(slots=True)
 class Unit:
+    MAX_HEALTH = 9
+
     player: Player = Player.Attacker
     type: UnitType = UnitType.Program
-    health : int = 9
+    health : int = MAX_HEALTH
     # class variable: damage table for units (based on the unit type constants in order)
     damage_table : ClassVar[list[list[int]]] = [
         [3,3,3,3,1], # AI
@@ -76,6 +69,10 @@ class Unit:
     def is_alive(self) -> bool:
         """Are we alive ?"""
         return self.health > 0
+
+    def is_full_health(self) -> bool:
+        """Are we alive ?"""
+        return self.health >= MAX_HEALTH
 
     def mod_health(self, health_delta : int):
         """Modify this unit's health by delta amount."""
@@ -325,16 +322,13 @@ class Game:
             target.mod_health(health_delta)
             self.remove_dead(coord)
 
-    def is_valid_move(self, coords : CoordPair) -> MoveType:
+    def is_valid_move(self, coords: CoordPair) -> bool:
         """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
-            return MoveType.Invalid
+            return False
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
-            return MoveType.Invalid
-        if self.is_restricted_movement(coords.src) is not False:
-
-            return MoveType.Invalid
+            return False
 
         adjacent = Coord(coords.src.row, coords.src.col)
         """This checks if the coords are adjacent"""
@@ -345,31 +339,40 @@ class Game:
         if adj_checker != True:
             return False
 
-        target = self.get(coords.dst)
-        #if moving to an empty slot, return Movement
-        if target is None:
-            return MoveType.Movement
-        #if moving to a slot with an enemy unit, return Attack
-        elif target.player != self.next_player:
-            return MoveType.Attack
-            # if moving to a slot with an ally unit, return Repair
-        elif target.player == self.next_player:
-            return MoveType.Repair
-        elif target == unit:
-            return MoveType.SelfDestruct
-
-        return target is None
+        return True
 
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
-        if self.is_valid_move(coords):
-            if coords.src == coords.dst:
-                self.self_destruct(coords.src)
-                return (True, "")
-            self.set(coords.dst,self.get(coords.src))
-            self.set(coords.src,None)
-            return (True,"")
-        return (False,"invalid move")
+
+        if not self.is_valid_move(coords):
+            return False, "invalid move"
+
+        source = self.get(coords.src)
+        target = self.get(coords.dst)
+
+        # if moving to an empty slot, return Movement
+        if target is None:
+            if self.is_restricted_movement(coords.src):
+                return False, "invalid move, engaged in battle"
+
+            self.set(coords.dst, self.get(coords.src))
+            self.set(coords.src, None)
+            return True,  "moved from " + coords.src.to_string() + " to " + coords.dst.to_string()
+        # if target is source
+        elif target is source:
+            self.self_destruct(coords.dst)
+            return True, "self-destruct at " + coords.src.to_string()
+        # if moving to a slot with an ally unit, return Repair
+        elif target.player is self.next_player:
+            self.repair(coords.src, coords.dst)
+            return True, coords.src.to_string() + " repaired " + coords.dst.to_string()
+        # if moving to a slot with an enemy unit, return Attack
+        elif target.player is not self.next_player:
+            self.attack(coords.src, coords.dst)
+            return True, coords.src.to_string() + " attacked " + coords.dst.to_string()
+
+        return False, "invalid move"
+
 
     def next_turn(self):
         """Transitions game to the next turn."""
@@ -590,7 +593,41 @@ class Game:
             if self.get(coord).type is not UnitType.Tech and self.get(coord).type is not UnitType.Virus:
                 return True
         return False
-    
+
+    def attack(self, src : Coord, dst : Coord) -> bool:
+        """NEW: hurts the target at the specified coordinates"""
+        if not self.is_valid_coord(src) or not self.is_valid_coord(dst):
+            print("invalid coordinates!")
+            return False
+
+        source = self.get(src)
+        target = self.get(dst)
+
+        self.mod_health(dst, -source.damage_amount(target))
+        self.mod_health(src, -target.damage_amount(source))
+
+        self.remove_dead(src)
+        self.remove_dead(dst)
+
+        return True
+
+
+    def repair(self, src : Coord, dst : Coord) -> bool:
+        """NEW: repairs the target at the specified coordinates"""
+        if not self.is_valid_coord(src) or not self.is_valid_coord(dst):
+            return False
+
+        source = self.get(src)
+        target = self.get(dst)
+
+        if target.is_full_health():
+            return False
+
+        self.mod_health(dst, source.repair_amount(target))
+
+        return True
+
+
     def self_destruct(self, coord : Coord):
         """NEW: self destructs hurting all units around it"""
         tmp = Coord(coord.row, coord.col)
