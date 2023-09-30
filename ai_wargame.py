@@ -323,6 +323,14 @@ class Game:
             return False
         if self.is_restricted_movement(coords.src) is not False:
             return False
+        adjacent = Coord(coords.src.row, coords.src.col)
+        """This checks if the coords are adjacent"""
+        adj_checker = False
+        for adjacent in adjacent.iter_adjacent():
+            if adjacent == coords.dst:
+                adj_checker = True
+        if adj_checker != True:
+            return False
         unit = self.get(coords.dst)
         return (unit is None)
 
@@ -540,7 +548,6 @@ class Game:
 
     def is_in_battle(self, coord : Coord):
         """NEW: Checks if the unit is in combat"""
-
         tmp = Coord(coord.row, coord.col)
         for tmp in tmp.iter_adjacent():
             unit1 = self.get(coord)
