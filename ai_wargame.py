@@ -4,13 +4,11 @@ import copy
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
+from typing import ClassVar, Iterable
 from time import sleep
 from typing import Tuple, Iterable
 import random
 import requests
-
-from coordinates import Coord, CoordPair
-from player import Player, UnitType, Unit
 
 # maximum and minimum values for our heuristic scores (usually represents an end of game condition)
 
@@ -24,6 +22,27 @@ class GameType(Enum):
     AttackerVsComp = 1
     CompVsDefender = 2
     CompVsComp = 3
+
+class Player(Enum):
+    """The 2 players."""
+    Attacker = 0
+    Defender = 1
+
+    def next(self) -> Player:
+        """The next (other) player."""
+        if self is Player.Attacker:
+            return Player.Defender
+        else:
+            return Player.Attacker
+
+
+class UnitType(Enum):
+    """Every unit type."""
+    AI = 0
+    Tech = 1
+    Virus = 2
+    Program = 3
+    Firewall = 4
 
 ##############################################################################################################
 
@@ -49,6 +68,200 @@ class Stats:
     """Representation of the global game statistics."""
     evaluations_per_depth: dict[int, int] = field(default_factory=dict)
     total_seconds: float = 0.0
+
+##############################################################################################################
+
+@dataclass(slots=True)
+class Coord:
+    """Representation of a game cell coordinate (row, col)."""
+    row: int = 0
+    col: int = 0
+
+    def col_string(self) -> str:
+        """Text representation of this Coord's column."""
+        coord_char = '?'
+        if self.col < 16:
+            coord_char = "0123456789abcdef"[self.col]
+        return str(coord_char)
+
+    def row_string(self) -> str:
+        """Text representation of this Coord's row."""
+        coord_char = '?'
+        if self.row < 26:
+            coord_char = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[self.row]
+        return str(coord_char)
+
+    def to_string(self) -> str:
+        """Text representation of this Coord."""
+        return self.row_string() + self.col_string()
+
+    def __str__(self) -> str:
+        """Text representation of this Coord."""
+        return self.to_string()
+
+    def clone(self) -> Coord:
+        """Clone a Coord."""
+        return copy.copy(self)
+
+    def iter_range(self, dist: int) -> Iterable[Coord]:
+        """Iterates over Coords inside a rectangle centered on our Coord."""
+        for row in range(self.row - dist, self.row + 1 + dist):
+            for col in range(self.col - dist, self.col + 1 + dist):
+                yield Coord(row, col)
+
+    def iter_adjacent(self) -> Iterable[Coord]:
+        """Iterates over adjacent Coords."""
+        yield Coord(self.row - 1, self.col)
+        yield Coord(self.row, self.col - 1)
+        yield Coord(self.row + 1, self.col)
+        yield Coord(self.row, self.col + 1)
+
+    @classmethod
+    def from_string(cls, s: str) -> Coord | None:
+        """Create a Coord from a string. ex: D2."""
+        s = s.strip()
+        for sep in " ,.:;-_":
+            s = s.replace(sep, "")
+        if len(s) == 2:
+            coord = Coord()
+            coord.row = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".find(s[0:1].upper())
+            coord.col = "0123456789abcdef".find(s[1:2].lower())
+            return coord
+        else:
+            return None
+
+##############################################################################################################
+
+
+@dataclass(slots=True)
+class CoordPair:
+    """Representation of a game move or a rectangular area via 2 Coords."""
+    src: Coord = field(default_factory=Coord)
+    dst: Coord = field(default_factory=Coord)
+
+    def to_string(self) -> str:
+        """Text representation of a CoordPair."""
+        return self.src.to_string() + " " + self.dst.to_string()
+
+    def __str__(self) -> str:
+        """Text representation of a CoordPair."""
+        return self.to_string()
+
+    def clone(self) -> CoordPair:
+        """Clones a CoordPair."""
+        return copy.copy(self)
+
+    def iter_rectangle(self) -> Iterable[Coord]:
+        """Iterates over cells of a rectangular area."""
+        for row in range(self.src.row, self.dst.row + 1):
+            for col in range(self.src.col, self.dst.col + 1):
+                yield Coord(row, col)
+
+    @classmethod
+    def from_quad(cls, row0: int, col0: int, row1: int, col1: int) -> CoordPair:
+        """Create a CoordPair from 4 integers."""
+        return CoordPair(Coord(row0, col0), Coord(row1, col1))
+
+    @classmethod
+    def from_dim(cls, dim: int) -> CoordPair:
+        """Create a CoordPair based on a dim-sized rectangle."""
+        return CoordPair(Coord(0, 0), Coord(dim - 1, dim - 1))
+
+    @classmethod
+    def from_string(cls, s: str) -> CoordPair | None:
+        """Create a CoordPair from a string. ex: A3 B2"""
+        s = s.strip()
+        for sep in " ,.:;-_":
+            s = s.replace(sep, "")
+        if len(s) == 4:
+            coords = CoordPair()
+            coords.src.row = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".find(s[0:1].upper())
+            coords.src.col = "0123456789abcdef".find(s[1:2].lower())
+            coords.dst.row = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".find(s[2:3].upper())
+            coords.dst.col = "0123456789abcdef".find(s[3:4].lower())
+            return coords
+        else:
+            return None
+
+##############################################################################################################
+
+
+@dataclass(slots=True)
+class Unit:
+    player: Player = Player.Attacker
+    type: UnitType = UnitType.Program
+    health: int = 9
+    # class variable: damage table for units (based on the unit type constants in order)
+    damage_table: ClassVar[list[list[int]]] = [
+        [3, 3, 3, 3, 1],  # AI
+        [1, 1, 6, 1, 1],  # Tech
+        [9, 6, 1, 6, 1],  # Virus
+        [3, 3, 3, 3, 1],  # Program
+        [1, 1, 1, 1, 1],  # Firewall
+    ]
+    # class variable: repair table for units (based on the unit type constants in order)
+    repair_table: ClassVar[list[list[int]]] = [
+        [0, 1, 1, 0, 0],  # AI
+        [3, 0, 0, 3, 3],  # Tech
+        [0, 0, 0, 0, 0],  # Virus
+        [0, 0, 0, 0, 0],  # Program
+        [0, 0, 0, 0, 0],  # Firewall
+    ]
+
+    def is_alive(self) -> bool:
+        """Are we alive ?"""
+        return self.health > 0
+
+    def mod_health(self, health_delta: int):
+        """Modify this unit's health by delta amount."""
+        self.health += health_delta
+        if self.health < 0:
+            self.health = 0
+        elif self.health > 9:
+            self.health = 9
+
+    def to_string(self) -> str:
+        """Text representation of this unit."""
+        p = self.player.name.lower()[0]
+        t = self.type.name.upper()[0]
+        return f"{p}{t}{self.health}"
+
+    def __str__(self) -> str:
+        """Text representation of this unit."""
+        return self.to_string()
+
+    def damage_amount(self, target: Unit) -> int:
+        """How much can this unit damage another unit."""
+        amount = self.damage_table[self.type.value][target.type.value]
+        if target.health - amount < 0:
+            return target.health
+        return amount
+
+    def repair_amount(self, target: Unit) -> int:
+        """How much can this unit repair another unit."""
+        amount = self.repair_table[self.type.value][target.type.value]
+        if target.health + amount > 9:
+            return 9 - target.health
+        return amount
+
+    def is_in_battle(self, coord: Coord):
+        """NEW: Checks if the unit is in combat"""
+
+        checks = Coord[
+            (self.row - 1, self.col), (self.row, self.col - 1), (self.row + 1, self.col), (self.row, self.col + 1)]
+
+        for i in range(checks):
+            coord2 = checks[i]
+            if self.is_valid_coord(coord2) is not None:
+                if coord2 is not None and coord.player != coord2.player:
+                    return True
+        return False
+
+    def is_restricted_movement(self, coord: Coord):
+        """NEW: Checks if the unit is able to move"""
+        if self.is_in_battle(coord) is True and self(coord) is not UnitType.Tech and self(coord) is not UnitType.Virus:
+            return True
+        return False
 
 ##############################################################################################################
 
@@ -131,8 +344,6 @@ class Game:
             return False
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
-            return False
-        if self.is_restricted_movement(coords.src) is not False:
             return False
         unit = self.get(coords.dst)
         return unit is None
