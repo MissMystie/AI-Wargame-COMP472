@@ -132,6 +132,8 @@ class Game:
         unit = self.get(coords.src)
         if unit is None or unit.player != self.next_player:
             return False
+        if self.is_restricted_movement(coords.src) is not False:
+            return False
         unit = self.get(coords.dst)
         return unit is None
 
