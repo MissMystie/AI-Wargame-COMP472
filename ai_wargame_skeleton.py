@@ -324,6 +324,9 @@ class Game:
     def perform_move(self, coords : CoordPair) -> Tuple[bool,str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
         if self.is_valid_move(coords):
+            #if coords.src == coords.dst:
+            #    self.self_destruct(coords.src)
+            #    return (True, "")
             self.set(coords.dst,self.get(coords.src))
             self.set(coords.src,None)
             return (True,"")
@@ -535,11 +538,8 @@ class Game:
         """NEW: Checks if the unit is in combat"""
 
         tmp = Coord(coord.row, coord.col)
-        Checks = []
         for tmp in tmp.iter_adjacent():
-            print(tmp)
             unit1 = self.get(coord)
-            print(unit1.type)
             unit2 = self.get(tmp)
             if self.is_valid_coord(tmp) is not None:
                 if unit2 is not None:
@@ -550,11 +550,20 @@ class Game:
     def is_restricted_movement(self, coord : Coord):
         """NEW: Checks if the unit is able to move"""
         if self.is_in_battle(coord) is True:
-            print(self.get(coord).type)
             if self.get(coord).type is not UnitType.Tech and self.get(coord).type is not UnitType.Virus:
                 return True
         return False
     
+    #def self_destruct(self, coord : Coord):
+    #    """NEW: self destructs hurting all units around it"""
+    #
+    #    tmp = Coord(coord.row, coord.col)
+    #    for tmp in tmp.iter_range():
+    #        unit = self.get(tmp)
+    #        if self.is_valid_coord(tmp) and u:
+    #            unit.mod_health(-2)
+    #            if
+
 ##############################################################################################################
 
 def main():
