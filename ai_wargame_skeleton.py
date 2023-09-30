@@ -548,6 +548,30 @@ class Game:
             print(f"Broker error: {error}")
         return None
 
+
+    def is_in_battle(self, coord : Coord):
+        """NEW: Checks if the unit is in combat"""
+
+        tmp = Coord(coord.row, coord.col)
+        Checks = []
+        for tmp in tmp.iter_adjacent():
+            print(tmp)
+            unit1 = self.get(coord)
+            print(unit1.type)
+            unit2 = self.get(tmp)
+            if self.is_valid_coord(tmp) is not None:
+                if unit2 is not None:
+                    if unit1.player != unit2.player:
+                        return True
+        return False
+    
+    def is_restricted_movement(self, coord : Coord):
+        """NEW: Checks if the unit is able to move"""
+        if self.is_in_battle(coord) is True:
+            print(self.get(coord).type)
+            if self.get(coord).type is not UnitType.Tech and self.get(coord).type is not UnitType.Virus:
+                return True
+        return False
 ##############################################################################################################
 
 def main():
