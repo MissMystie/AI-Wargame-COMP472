@@ -72,7 +72,7 @@ class Unit:
 
     def is_full_health(self) -> bool:
         """Are we alive ?"""
-        return self.health >= MAX_HEALTH
+        return self.health >= self.MAX_HEALTH
 
     def mod_health(self, health_delta : int):
         """Modify this unit's health by delta amount."""
@@ -330,14 +330,15 @@ class Game:
         if unit is None or unit.player != self.next_player:
             return False
 
-        adjacent = Coord(coords.src.row, coords.src.col)
-        """This checks if the coords are adjacent"""
-        adj_checker = False
-        for adjacent in adjacent.iter_adjacent():
-            if adjacent == coords.dst:
-                adj_checker = True
-        if adj_checker != True:
-            return False
+        if coords.src != coords.dst:
+            adjacent = Coord(coords.src.row, coords.src.col)
+            """This checks if the coords are adjacent"""
+            adj_checker = False
+            for adjacent in adjacent.iter_adjacent():
+                if adjacent == coords.dst:
+                    adj_checker = True
+            if adj_checker != True:
+                return False
 
         return True
 
@@ -363,11 +364,11 @@ class Game:
             return True, "self-destruct at " + coords.src.to_string()
         # if moving to a slot with an ally unit, return Repair
         elif target.player is self.next_player:
-            self.repair(coords.src, coords.dst)
+            self.repair(coords)
             return True, coords.src.to_string() + " repaired " + coords.dst.to_string()
         # if moving to a slot with an enemy unit, return Attack
         elif target.player is not self.next_player:
-            self.attack(coords.src, coords.dst)
+            self.attack(coords)
             return True, coords.src.to_string() + " attacked " + coords.dst.to_string()
 
         return False, "invalid move"
@@ -592,36 +593,36 @@ class Game:
                 return True
         return False
 
-    def attack(self, src : Coord, dst : Coord) -> bool:
+    def attack(self, coords : CoordPair) -> bool:
         """NEW: hurts the target at the specified coordinates"""
-        if not self.is_valid_coord(src) or not self.is_valid_coord(dst):
+        if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             print("invalid coordinates!")
             return False
 
-        source = self.get(src)
-        target = self.get(dst)
+        source = self.get(coords.src)
+        target = self.get(coords.dst)
 
-        self.mod_health(dst, -source.damage_amount(target))
-        self.mod_health(src, -target.damage_amount(source))
+        self.mod_health(coords.dst, -source.damage_amount(target))
+        self.mod_health(coords.src, -target.damage_amount(source))
 
-        self.remove_dead(src)
-        self.remove_dead(dst)
+        self.remove_dead(coords.src)
+        self.remove_dead(coords.dst)
 
         return True
 
 
-    def repair(self, src : Coord, dst : Coord) -> bool:
+    def repair(self, coords : CoordPair) -> bool:
         """NEW: repairs the target at the specified coordinates"""
-        if not self.is_valid_coord(src) or not self.is_valid_coord(dst):
+        if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
 
-        source = self.get(src)
-        target = self.get(dst)
+        source = self.get(coords.src)
+        target = self.get(coords.dst)
 
         if target.is_full_health():
             return False
 
-        self.mod_health(dst, source.repair_amount(target))
+        self.mod_health(coords.dst, source.repair_amount(target))
 
         return True
 
