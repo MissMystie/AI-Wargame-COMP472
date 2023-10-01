@@ -264,6 +264,8 @@ class Game:
     _attacker_has_ai : bool = True
     _defender_has_ai : bool = True
 
+    LOG_INVALID_MOVES: bool = True
+
     def __post_init__(self):
         """Automatically called after class init to set up the default board state."""
         dim = self.options.dim
@@ -361,15 +363,21 @@ class Game:
             self.set(coords.dst, self.get(coords.src))
             self.set(coords.src, None)
             return True,  "moved from " + coords.src.to_string() + " to " + coords.dst.to_string()
-        # if target is source
+        # if target is source, self destruct
         elif target is source:
             self.self_destruct(coords.dst)
             return True, "self-destruct at " + coords.src.to_string()
-        # if moving to a slot with an ally unit, return Repair
+        # if moving to a slot with an ally unit, repair
         elif target.player is self.next_player:
+            if target.health == target.MAX_HEALTH:
+                return False, "invalid move, target is at full health"
+            elif source.repair_amount(target) <= 0:
+                return False, "invalid move, repair amount is 0"
+
+            source.repair_amount(target)
             self.repair(coords)
             return True, coords.src.to_string() + " repaired " + coords.dst.to_string()
-        # if moving to a slot with an enemy unit, return Attack
+        # if moving to a slot with an enemy unit, attack
         elif target.player is not self.next_player:
             self.attack(coords)
             return True, coords.src.to_string() + " attacked " + coords.dst.to_string()
@@ -429,7 +437,7 @@ class Game:
             else:
                 print('Invalid coordinates! Try again.')
     
-    def human_turn(self) -> str:
+    def human_turn(self, player: Player, output: Output):
         """Human player plays a move (or get via broker)."""
         if self.options.broker is not None:
             print("Getting next move with auto-retry from game broker...")
@@ -439,27 +447,30 @@ class Game:
                     (success, result) = self.perform_move(mv)
                     print(f"Broker {self.next_player.name}: ", end='')
                     print(result)
+                    output.print(player.name + ": " + result)
                     if success:
                         self.next_turn()
-                        return result
+                        break
                 sleep(0.1)
         else:
             while True:
                 mv = self.read_move()
                 (success, result) = self.perform_move(mv)
+                output.print(player.name + ": " + result)
                 if success:
                     print(f"Player {self.next_player.name}: ", end='')
                     print(result)
                     self.next_turn()
-                    return result
+                    break
                 else:
                     print("The move is not valid! Try again.")
 
-    def computer_turn(self) -> CoordPair | None:
+    def computer_turn(self, player: Player, output: Output) -> CoordPair | None:
         """Computer plays a move."""
         mv = self.suggest_move()
         if mv is not None:
             (success, result) = self.perform_move(mv)
+            output.print(player.name + ": " + result)
             if success:
                 print(f"Computer {self.next_player.name}: ", end='')
                 print(result)
@@ -596,7 +607,7 @@ class Game:
                 return True
         return False
 
-    def attack(self, coords : CoordPair) -> bool:
+    def attack(self, coords: CoordPair) -> bool:
         """NEW: hurts the target at the specified coordinates"""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             print("invalid coordinates!")
@@ -613,8 +624,7 @@ class Game:
 
         return True
 
-
-    def repair(self, coords : CoordPair) -> bool:
+    def repair(self, coords: CoordPair) -> bool:
         """NEW: repairs the target at the specified coordinates"""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
@@ -628,7 +638,6 @@ class Game:
         self.mod_health(coords.dst, source.repair_amount(target))
 
         return True
-
 
     def self_destruct(self, coord : Coord):
         """NEW: self destructs hurting all units around it"""
@@ -730,18 +739,17 @@ def main():
         print(game)
         output.print(game.to_string() + "\n")
         winner = game.has_winner()
-        log = ""
 
         if winner is not None:
             print(f"{winner.name} wins!")
             output.print(f"{winner.name} wins!")
             break
         if game.options.game_type == GameType.AttackerVsDefender:
-            log = game.next_player.name + ": " + game.human_turn()
+            game.human_turn(game.next_player, output)
         elif game.options.game_type == GameType.AttackerVsComp and game.next_player == Player.Attacker:
-            log = game.next_player.name + ": " + game.human_turn()
+            game.human_turn(game.next_player, output)
         elif game.options.game_type == GameType.CompVsDefender and game.next_player == Player.Defender:
-            log = game.next_player.name + ": " + game.human_turn()
+            game.human_turn(game.next_player, output)
         else:
             player = game.next_player
             move = game.computer_turn()
@@ -750,7 +758,6 @@ def main():
             else:
                 print("Computer doesn't know what to do!!!")
                 exit(1)
-        output.print(log)
     output.close()
 
 ##############################################################################################################
