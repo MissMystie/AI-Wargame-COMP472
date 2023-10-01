@@ -724,12 +724,11 @@ def main():
     # create Trace file and loaded up with starting info
     output = Output(options, game_type)
 
-    output.print(game.to_string())
-
     # the main game loop
     while True:
         print()
         print(game)
+        output.print(game.to_string() + "\n")
         winner = game.has_winner()
         log = ""
 
