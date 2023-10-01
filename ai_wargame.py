@@ -5,13 +5,14 @@ from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Tuple, TypeVar, Type, Iterable, ClassVar
+from typing import Tuple, TypeVar, Type, Iterable, ClassVar, TextIO
 import random
 import requests
 
 # maximum and minimum values for our heuristic scores (usually represents an end of game condition)
 MAX_HEURISTIC_SCORE = 2000000000
 MIN_HEURISTIC_SCORE = -2000000000
+
 
 class UnitType(Enum):
     """Every unit type."""
@@ -20,6 +21,7 @@ class UnitType(Enum):
     Virus = 2
     Program = 3
     Firewall = 4
+
 
 class Player(Enum):
     """The 2 players."""
@@ -32,6 +34,7 @@ class Player(Enum):
             return Player.Defender
         else:
             return Player.Attacker
+
 
 class GameType(Enum):
     AttackerVsDefender = 0
@@ -426,29 +429,29 @@ class Game:
             else:
                 print('Invalid coordinates! Try again.')
     
-    def human_turn(self):
+    def human_turn(self) -> str:
         """Human player plays a move (or get via broker)."""
         if self.options.broker is not None:
             print("Getting next move with auto-retry from game broker...")
             while True:
                 mv = self.get_move_from_broker()
                 if mv is not None:
-                    (success,result) = self.perform_move(mv)
-                    print(f"Broker {self.next_player.name}: ",end='')
+                    (success, result) = self.perform_move(mv)
+                    print(f"Broker {self.next_player.name}: ", end='')
                     print(result)
                     if success:
                         self.next_turn()
-                        break
+                        return result
                 sleep(0.1)
         else:
             while True:
                 mv = self.read_move()
-                (success,result) = self.perform_move(mv)
+                (success, result) = self.perform_move(mv)
                 if success:
-                    print(f"Player {self.next_player.name}: ",end='')
+                    print(f"Player {self.next_player.name}: ", end='')
                     print(result)
                     self.next_turn()
-                    break
+                    return result
                 else:
                     print("The move is not valid! Try again.")
 
@@ -456,9 +459,9 @@ class Game:
         """Computer plays a move."""
         mv = self.suggest_move()
         if mv is not None:
-            (success,result) = self.perform_move(mv)
+            (success, result) = self.perform_move(mv)
             if success:
-                print(f"Computer {self.next_player.name}: ",end='')
+                print(f"Computer {self.next_player.name}: ", end='')
                 print(result)
                 self.next_turn()
         return mv
@@ -468,7 +471,7 @@ class Game:
         for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
             unit = self.get(coord)
             if unit is not None and unit.player == player:
-                yield (coord,unit)
+                yield (coord, unit)
 
     def is_finished(self) -> bool:
         """Check if the game is over."""
@@ -641,6 +644,45 @@ class Game:
 
 ##############################################################################################################
 
+
+@dataclass(slots=True)
+class Output:
+    OUTPUT_PATH = "output/"
+    FILE_EXTENSION = "txt"
+
+    file: TextIO | None
+
+    def __init__(self, options: Options, game_type: GameType):
+        b = options.alpha_beta
+        t = options.max_time
+        m = options.max_turns
+
+        filename = "gameTrace-" + str(b) + "-" + str(t) + "-" + str(m) + "." + self. FILE_EXTENSION
+        self.file = open(self.OUTPUT_PATH + filename, "w+")
+
+        self.file.write("Current settings:\n")
+        self.file.write("Timeout in seconds: " + str(t) + "\n")
+        self.file.write("Max number of Turns: " + str(m) + "\n")
+        self.file.write("Alpha Beta is on: " + str(b) + "\n")
+        self.file.write("Game Type: " + str(game_type) + "\n")
+
+        self.file.flush()
+
+        return
+
+    def print(self, line: str):
+        if line is not None:
+            self.file.write(line + "\n")
+            self.file.flush()
+        return
+
+    def close(self):
+        self.file.close
+        return
+
+##############################################################################################################
+
+
 def main():
     # parse command line arguments
     parser = argparse.ArgumentParser(
@@ -679,31 +721,28 @@ def main():
     # create a new game
     game = Game(options=options)
 
-     #Create Trace file and loaded up with starting info
-    b = Options.alpha_beta
-    t = Options.max_time
-    m = Options.max_turns
-    f = open("gameTrace-" + b + "-" + t + "-" + m + ".txt","w+")
-    f.write("Current settings:")
-    f.write("Timeout in seconds: " + t)
-    f.write("Max number of Turns: " + m)
-    f.write("Alpha Beta is on: " + b)
-    f.write("Game Type: " + game_type)
+    # create Trace file and loaded up with starting info
+    output = Output(options, game_type)
+
+    output.print(game.to_string())
 
     # the main game loop
     while True:
         print()
         print(game)
         winner = game.has_winner()
+        log = ""
+
         if winner is not None:
             print(f"{winner.name} wins!")
+            output.print(f"{winner.name} wins!")
             break
         if game.options.game_type == GameType.AttackerVsDefender:
-            game.human_turn()
+            log = game.next_player.name + ": " + game.human_turn()
         elif game.options.game_type == GameType.AttackerVsComp and game.next_player == Player.Attacker:
-            game.human_turn()
+            log = game.next_player.name + ": " + game.human_turn()
         elif game.options.game_type == GameType.CompVsDefender and game.next_player == Player.Defender:
-            game.human_turn()
+            log = game.next_player.name + ": " + game.human_turn()
         else:
             player = game.next_player
             move = game.computer_turn()
@@ -712,8 +751,11 @@ def main():
             else:
                 print("Computer doesn't know what to do!!!")
                 exit(1)
+        output.print(log)
+    output.close()
 
 ##############################################################################################################
+
 
 if __name__ == '__main__':
     main()
