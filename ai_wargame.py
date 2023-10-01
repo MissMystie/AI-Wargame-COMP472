@@ -679,6 +679,17 @@ def main():
     # create a new game
     game = Game(options=options)
 
+     #Create Trace file and loaded up with starting info
+    b = Options.alpha_beta
+    t = Options.max_time
+    m = Options.max_turns
+    f = open("gameTrace-" + b + "-" + t + "-" + m + ".txt","w+")
+    f.write("Current settings:")
+    f.write("Timeout in seconds: " + t)
+    f.write("Max number of Turns: " + m)
+    f.write("Alpha Beta is on: " + b)
+    f.write("Game Type: " + game_type)
+
     # the main game loop
     while True:
         print()
