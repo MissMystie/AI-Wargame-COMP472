@@ -1,5 +1,5 @@
 # AI-Wargame-COMP472
-
+A COMP 472 project by Sarah Wari and Zarren Ali
 ## Launching the game
 To launch the game run this command
 
