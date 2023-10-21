@@ -2,13 +2,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TextIO
 
-
 @dataclass(slots=True)
 class Output:
     OUTPUT_PATH = "output/"
     FILE_EXTENSION = "txt"
 
     file: TextIO | None
+
 
     def __init__(self, game_type: str, alpha_beta: str, max_time: str, max_turns: str):
 
