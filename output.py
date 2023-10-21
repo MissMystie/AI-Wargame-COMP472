@@ -9,16 +9,17 @@ class Output:
 
     file: TextIO | None
 
-    def __init__(self, game_type: str, alpha_beta: str, max_time: str, max_turns:str):
 
-        filename = "gameTrace-" + str(b) + "-" + str(t) + "-" + str(m) + "." + self. FILE_EXTENSION
+    def __init__(self, game_type: str, alpha_beta: str, max_time: str, max_turns: str):
+
+        filename = "gameTrace-" + alpha_beta + "-" + max_time + "-" + max_turns + "." + self.FILE_EXTENSION
         self.file = open(self.OUTPUT_PATH + filename, "w+")
 
         self.file.write("Current settings:\n")
-        self.file.write("Timeout in seconds: " + str(t) + "\n")
-        self.file.write("Max number of Turns: " + str(m) + "\n")
-        self.file.write("Alpha Beta is on: " + str(b) + "\n")
-        self.file.write("Game Type: " + str(game_type) + "\n")
+        self.file.write("Timeout in seconds: " + max_time + "\n")
+        self.file.write("Max number of Turns: " + max_turns + "\n")
+        self.file.write("Alpha Beta is on: " + alpha_beta + "\n")
+        self.file.write("Game Type: " + game_type + "\n")
 
         self.file.flush()
 
@@ -32,4 +33,3 @@ class Output:
 
     def close(self):
         self.file.close
-        return

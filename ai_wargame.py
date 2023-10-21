@@ -48,7 +48,7 @@ def main():
     game = Game(options=options)
 
     # create Trace file and loaded up with starting info
-    output = Output(options, game_type)
+    output = Output(str(game_type), str(options.alpha_beta), str(options.max_time), str(options.max_turns))
 
     # the main game loop
     while True:

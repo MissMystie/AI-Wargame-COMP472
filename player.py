@@ -14,7 +14,7 @@ class Player(Enum):
             return Player.Defender
         else:
             return Player.Attacker
-        
+
 class UnitType(Enum):
     """Every unit type."""
     AI = 0
