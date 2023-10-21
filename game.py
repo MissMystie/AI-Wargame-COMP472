@@ -10,20 +10,7 @@ import requests
 
 from coordinates import Coord, CoordPair
 from output import Output
-from unit import Unit, UnitType
-
-
-class Player(Enum):
-    """The 2 players."""
-    Attacker = 0
-    Defender = 1
-
-    def next(self) -> Player:
-        """The next (other) player."""
-        if self is Player.Attacker:
-            return Player.Defender
-        else:
-            return Player.Attacker
+from player import Player, Unit, UnitType
 
 
 class GameType(Enum):

@@ -3,8 +3,17 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import ClassVar
 
-from game import Player
+class Player(Enum):
+    """The 2 players."""
+    Attacker = 0
+    Defender = 1
 
+    def next(self) -> Player:
+        """The next (other) player."""
+        if self is Player.Attacker:
+            return Player.Defender
+        else:
+            return Player.Attacker
 
 class UnitType(Enum):
     """Every unit type."""
