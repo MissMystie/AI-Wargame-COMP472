@@ -5,10 +5,6 @@ import argparse
 from game import Game, GameType, Player, Options
 from output import Output
 
-MAX_HEURISTIC_SCORE = 2000000000
-MIN_HEURISTIC_SCORE = -2000000000
-
-
 def main():
     # parse command line arguments
     parser = argparse.ArgumentParser(

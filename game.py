@@ -12,6 +12,9 @@ from coordinates import Coord, CoordPair
 from output import Output
 from player import Player, Unit, UnitType
 
+# maximum and minimum values for our heuristic scores (usually represents an end of game condition)
+MAX_HEURISTIC_SCORE = 2000000000
+MIN_HEURISTIC_SCORE = -2000000000
 
 class GameType(Enum):
     AttackerVsDefender = 0
@@ -476,7 +479,7 @@ class MiniMax:
         if self.isTerminal(node):
             return self.getUtility(node)
 
-        max_value = ai_wargame.MIN_HEURISTIC_SCORE
+        max_value = MIN_HEURISTIC_SCORE
 
         successors_states = self.getSuccessors(node)
         for state in successors_states:
@@ -487,7 +490,7 @@ class MiniMax:
         if self.isTerminal(node):
             return self.getUtility(node)
 
-        min_value = ai_wargame.MAX_HEURISTIC_SCORE
+        min_value = MAX_HEURISTIC_SCORE
 
         successors_states = self.getSuccessors(node)
         for state in successors_states:
