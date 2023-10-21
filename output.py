@@ -2,9 +2,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TextIO
 
-from game import GameType, Options
-
-
 @dataclass(slots=True)
 class Output:
     OUTPUT_PATH = "output/"
@@ -12,10 +9,7 @@ class Output:
 
     file: TextIO | None
 
-    def __init__(self, options: Options, game_type: GameType):
-        b = options.alpha_beta
-        t = options.max_time
-        m = options.max_turns
+    def __init__(self, game_type: str, alpha_beta: str, max_time: str, max_turns:str):
 
         filename = "gameTrace-" + str(b) + "-" + str(t) + "-" + str(m) + "." + self. FILE_EXTENSION
         self.file = open(self.OUTPUT_PATH + filename, "w+")
