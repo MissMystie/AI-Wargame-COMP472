@@ -159,6 +159,9 @@ class Game:
         if target is None:
             if self.is_restricted_movement(coords.src):
                 return False, "invalid move, engaged in battle"
+            #makes a extra check for if the unit can move in that direction
+            if self.valid_direction(coords):
+                return False, f"invalid move, {self.get(coords.src).type} can't move this way"
 
             self.set(coords.dst, self.get(coords.src))
             self.set(coords.src, None)
@@ -405,6 +408,23 @@ class Game:
             if self.get(coord).type is not UnitType.Tech and self.get(coord).type is not UnitType.Virus:
                 return True
         return False
+
+    def valid_direction(self, coords: CoordPair):
+        """NEW: checks if the unit type is allowed to go in that direction"""
+        #checks unit types are AI, Firewall or Program
+        if self.get(coords.src).type is not UnitType.Tech and self.get(coords.src).type is not UnitType.Virus:
+            #checks for and ignores self destruction cases
+            if self.get(coords.src) == self.get(coords.dst):
+                return True
+            #checks if it's an attacker and calculates accordingly
+            if self.get(coords.src).player == Player.Attacker:
+                if coords.dst.col == (coords.src.col - 1) or coords.dst.row == (coords.src.row - 1):
+                    return False
+            #checks if it's a defender and calculates accordingly
+            if self.get(coords.src).player == Player.Defender:
+                if coords.dst.col == (coords.src.col + 1) or coords.dst.row == (coords.src.row + 1):
+                    return False
+        return True
 
     def attack(self, coords: CoordPair) -> bool:
         """NEW: hurts the target at the specified coordinates"""
