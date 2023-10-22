@@ -521,15 +521,16 @@ class MiniMax:
         assert node is not None
         return list(self.move_candidates(node))
     
-    #returns true if no children, returns false if it has children
+    #returns true if no children or hits the depth limit, returns false if it has children
     def isTerminal(self, node) :
         assert node is not None
-        assert node.depth > self.game_tree.max_depth
+        if node.depth > self.game_tree.max_depth:
+            return True
         return len(self.move_candidates(node)) == 0
     
     def getUtility(self, node):
         assert node is not None
-        return node.value
+        return self.getHeuristicScore(node)
     
     def getHeuristicScore(self, node):
         #grabs the heuristic score from the proper heuristic
