@@ -8,6 +8,7 @@ from typing import Tuple, Iterable
 import random
 import requests
 
+from ai import MiniMax
 from coordinates import Coord, CoordPair
 from output import Output
 from player import Player, Unit, UnitType
@@ -324,7 +325,8 @@ class Game:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
         start_time = datetime.now()
         #(score, move, avg_depth) = self.random_move()
-        (score, move, avg_depth) = self.minimax(self.clone(self))
+        #(score, move, avg_depth) = self.minimax(self.clone(self))
+        (score, move) = MiniMax.minimax(self.clone(self))
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
