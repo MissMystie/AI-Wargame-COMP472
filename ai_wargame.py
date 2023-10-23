@@ -77,8 +77,9 @@ def main():
             if move is not None:
                 game.post_move_to_broker(move)
             else:
-                print("Computer doesn't know what to do!!!")
-                exit(1)
+                output.print(f"Computer {player.name} : execution interrupted")
+                output.print(f"{player.next().name} wins!")
+                break
     output.close()
 
 ##############################################################################################################

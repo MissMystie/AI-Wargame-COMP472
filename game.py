@@ -56,7 +56,17 @@ class Stats:
     """Representation of the global game statistics."""
     evaluations_per_depth: dict[int, int] = field(default_factory=dict)
     total_seconds: float = 0.0
+    branching_factors: list[int] = field(default_factory=list)
 
+    def averageBranchingFactor(self) -> float:
+        if len(self.branching_factors) == 0 :
+            return 0
+
+        branching_factor_total = 0
+        for branching_factor in self.branching_factors:
+            branching_factor_total += branching_factor
+
+        return branching_factor_total / len(self.branching_factors)
 
 ##############################################################################################################
 
@@ -276,9 +286,8 @@ class Game:
                 else:
                     (success, result) = (False, "invalid move")
 
+                output.print(f"Player {player.name} : " + result)
                 if success:
-                    output.print(f"Player {player.name} : " + result)
-
                     self.next_turn()
                     break
                 else:
@@ -292,9 +301,10 @@ class Game:
                 (success, result) = self.perform_move(player, mv)
             else:
                 (success, result) = (False, "invalid move")
+                return None
 
+            output.print(f"Computer {player.name} : " + result)
             if success:
-                output.print(f"Computer {player.name} : " + result)
                 self.next_turn()
         return mv
 
@@ -350,23 +360,17 @@ class Game:
 
     def suggest_move(self, player: Player, output: Output) -> CoordPair | None:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
-        start_time = datetime.now()
         # (score, move, avg_depth) = self.random_move()
         # (score, move, avg_depth) = self.minimax(self.clone(self))
+        start_time = datetime.now()
         (score, move) = minimax(self, player)
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
-        if elapsed_seconds > self.options.max_time:
-            if player == Player.Attacker:
-                self._attacker_has_ai = False
-            elif player == Player.Defender:
-                self._defender_has_ai = False
-            print(f"Elapsed time: {elapsed_seconds:0.1f}s")
-            print(f"Heuristic has timed out by {(elapsed_seconds - self.options.max_time):0.1f} seconds!")
-            return move
+
         self.stats.total_seconds += elapsed_seconds
 
         total_evals = sum(self.stats.evaluations_per_depth.values())
 
+        output.print(f"Elapsed time: {elapsed_seconds:0.1f}s")
         output.print(f"Heuristic score: {score}")
         output.print(f"Evals per depth: ")
         for k in sorted(self.stats.evaluations_per_depth.keys()):
@@ -374,7 +378,11 @@ class Game:
                          f"{round(self.stats.evaluations_per_depth[k]/total_evals * 100, 2)}%")
         if self.stats.total_seconds > 0:
             output.print(f"Eval perf.: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
-        output.print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+        output.print(f"Average branching factor: {self.stats.averageBranchingFactor()}")
+
+        if elapsed_seconds > self.options.max_time:
+            output.print(f"Heuristic has timed out by {(elapsed_seconds - self.options.max_time):0.1f} seconds!")
+            return None
 
         return move
 
@@ -596,11 +604,14 @@ def max_value(node: Node, current_player: Player, alpha_beta: bool) -> Node:
     if node.parent is not None:
         node.alpha = node.parent.alpha #alpha
 
+    nb_nodes_visited = 0
     for s in node.successors:
         node.alpha = max(node.alpha, min_value(s, current_player, alpha_beta).score)
-        #TODO implement alpha beta here, break loop if alphabeta (use parent node)
+        nb_nodes_visited += 1
         if alpha_beta and node.parent is not None and node.alpha >= node.parent.beta: #if enabled & alpha > beta
             break
+
+    node.game_state.stats.branching_factors.append(nb_nodes_visited)
 
     node.score = node.alpha
     #print("Player: " + node.player.name + ", Max Score: " + str(node.score))
@@ -610,6 +621,7 @@ def max_value(node: Node, current_player: Player, alpha_beta: bool) -> Node:
 
 
 def min_value(node: Node, current_player: Player, alpha_beta: bool) -> Node:
+
     if node.at_max_depth() or len(node.get_successors()) == 0:
         node.score = get_utility(node, current_player)
         return node
@@ -617,11 +629,14 @@ def min_value(node: Node, current_player: Player, alpha_beta: bool) -> Node:
     if node.parent is not None:
         node.beta = node.parent.beta #beta
 
+    nb_nodes_visited = 0
     for s in node.successors:
         node.beta = min(node.beta, max_value(s, current_player, alpha_beta).score) # beta
-        # TODO implement alpha beta here, break loop if alphabeta (use parent node) 
+        nb_nodes_visited += 1
         if alpha_beta and node.parent is not None and node.parent.alpha >= node.beta: #if enabled & alpha > beta
             break
+
+    node.game_state.stats.branching_factors.append(nb_nodes_visited)
 
     node.score = node.beta
     #print("Player: " + node.player.name + ", Min Score: " + str(node.score))
