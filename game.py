@@ -361,6 +361,14 @@ class Game:
         # (score, move, avg_depth) = self.minimax(self.clone(self))
         (score, move) = minimax(self, player)
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
+        if elapsed_seconds > self.options.max_time:
+            if player == Player.Attacker:
+                self._attacker_has_ai = False
+            elif player == Player.Defender:
+                self._defender_has_ai = False
+            print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+            print(f"Heuristic has timed out by {(elapsed_seconds - self.options.max_time):0.1f} seconds!")
+            return move
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
         print(f"Evals per depth: ", end='')
