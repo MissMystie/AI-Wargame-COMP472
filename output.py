@@ -15,14 +15,6 @@ class Output:
         filename = "gameTrace-" + alpha_beta + "-" + max_time + "-" + max_turns + "." + self.FILE_EXTENSION
         self.file = open(self.OUTPUT_PATH + filename, "w+")
 
-        self.file.write("Current settings:\n")
-        self.file.write("Timeout in seconds: " + max_time + "\n")
-        self.file.write("Max number of Turns: " + max_turns + "\n")
-        self.file.write("Alpha Beta is on: " + alpha_beta + "\n")
-        self.file.write("Game Type: " + game_type + "\n")
-
-        self.file.flush()
-
         return
 
     def print(self, line: str):

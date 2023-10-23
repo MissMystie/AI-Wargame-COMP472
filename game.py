@@ -8,10 +8,13 @@ from typing import Tuple, Iterable
 import random
 import requests
 
-from ai import MiniMax
 from coordinates import Coord, CoordPair
 from output import Output
 from player import Player, Unit, UnitType
+
+# maximum and minimum values for our heuristic scores (usually represents an end of game condition)
+MAX_HEURISTIC_SCORE = 2000000000
+MIN_HEURISTIC_SCORE = -2000000000
 
 
 class GameType(Enum):
@@ -20,6 +23,13 @@ class GameType(Enum):
     CompVsDefender = 2
     CompVsComp = 3
 
+UNIT_HEURISTIC = [
+        9999,  # AI
+        3,  # Tech
+        3,  # Virus
+        3,  # Program
+        3,  # Firewall
+    ]
 
 ##############################################################################################################
 
@@ -36,7 +46,8 @@ class Options:
     max_turns: int | None = 100
     randomize_moves: bool = True
     broker: str | None = None
-
+    heuristic_attacker: str | None = "e0"
+    heuristic_defender: str | None = "e0"
 
 ##############################################################################################################
 
@@ -125,12 +136,12 @@ class Game:
             target.mod_health(health_delta)
             self.remove_dead(coord)
 
-    def is_valid_move(self, coords: CoordPair) -> bool:
-        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
+    def is_valid_move(self, player: Player, coords: CoordPair) -> bool:
+        """Validate a move expressed as a CoordPair."""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
-        unit = self.get(coords.src)
-        if unit is None or unit.player != self.next_player:
+        source = self.get(coords.src)
+        if source is None or source.player != player:
             return False
 
         if coords.src != coords.dst:
@@ -140,27 +151,35 @@ class Game:
             for adjacent in adjacent.iter_adjacent():
                 if adjacent == coords.dst:
                     adj_checker = True
-            if adj_checker != True:
+            if adj_checker is not True:
                 return False
+
+        target = self.get(coords.dst)
+
+        if target is None:
+            if self.is_restricted_movement(coords.src):
+                return False #"invalid move, engaged in battle"
+            # makes a extra check for if the unit can move in that direction
+            if self.valid_direction(coords):
+                return False #f"invalid move, {self.get(coords.src).type} can't move this way"
+        elif target is not source and target.player is player:
+            if target.health == target.MAX_HEALTH:
+                return False #"invalid move, target is at full health"
+            elif source.repair_amount(target) <= 0:
+                return False #"invalid move, repair amount is 0"
 
         return True
 
-    def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
+    def perform_move(self, player: Player, coords: CoordPair) -> Tuple[bool, str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
-        if not self.is_valid_move(coords):
-            return False, "invalid move"
+        #if not self.is_valid_move(player, coords):
+            #return False, "invalid move"
 
         source = self.get(coords.src)
         target = self.get(coords.dst)
 
         # if moving to an empty slot, return Movement
         if target is None:
-            if self.is_restricted_movement(coords.src):
-                return False, "invalid move, engaged in battle"
-            #makes a extra check for if the unit can move in that direction
-            if self.valid_direction(coords):
-                return False, f"invalid move, {self.get(coords.src).type} can't move this way"
-
             self.set(coords.dst, self.get(coords.src))
             self.set(coords.src, None)
             return True, "moved from " + coords.src.to_string() + " to " + coords.dst.to_string()
@@ -169,17 +188,12 @@ class Game:
             self.self_destruct(coords.dst)
             return True, "self-destruct at " + coords.src.to_string()
         # if moving to a slot with an ally unit, repair
-        elif target.player is self.next_player:
-            if target.health == target.MAX_HEALTH:
-                return False, "invalid move, target is at full health"
-            elif source.repair_amount(target) <= 0:
-                return False, "invalid move, repair amount is 0"
-
+        elif target.player is player:
             source.repair_amount(target)
             self.repair(coords)
             return True, coords.src.to_string() + " repaired " + coords.dst.to_string()
         # if moving to a slot with an enemy unit, attack
-        elif target.player is not self.next_player:
+        elif target.player is not player:
             self.attack(coords)
             return True, coords.src.to_string() + " attacked " + coords.dst.to_string()
 
@@ -245,8 +259,12 @@ class Game:
             while True:
                 mv = self.get_move_from_broker()
                 if mv is not None:
-                    (success, result) = self.perform_move(mv)
-                    print(f"Broker {self.next_player.name}: ", end='')
+                    if self.is_valid_move(player, mv):
+                        (success, result) = self.perform_move(player, mv)
+                    else:
+                        (success, result) = (False, "invalid move")
+
+                    print(f"Broker {player.name}: ", end='')
                     print(result)
                     output.print(player.name + ": " + result)
                     if success:
@@ -256,10 +274,14 @@ class Game:
         else:
             while True:
                 mv = self.read_move()
-                (success, result) = self.perform_move(mv)
+                if self.is_valid_move(player, mv):
+                    (success, result) = self.perform_move(player, mv)
+                else:
+                    (success, result) = (False, "invalid move")
+
                 output.print(player.name + ": " + result)
                 if success:
-                    print(f"Player {self.next_player.name}: ", end='')
+                    print(f"Player {player.name}: ", end='')
                     print(result)
                     self.next_turn()
                     break
@@ -268,22 +290,33 @@ class Game:
 
     def computer_turn(self, player: Player, output: Output) -> CoordPair | None:
         """Computer plays a move."""
-        mv = self.suggest_move()
+        mv = self.suggest_move(player)
         if mv is not None:
-            (success, result) = self.perform_move(mv)
+            if self.is_valid_move(player, mv):
+                (success, result) = self.perform_move(player, mv)
+            else:
+                (success, result) = (False, "invalid move")
+
             output.print(player.name + ": " + result)
             if success:
-                print(f"Computer {self.next_player.name}: ", end='')
+                print(f"Computer {player.name}: ", end='')
                 print(result)
                 self.next_turn()
         return mv
+
+    def get_units(self) -> Iterable[Tuple[Coord, Unit]]:
+        """Iterates over all units."""
+        for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
+            unit = self.get(coord)
+            if unit is not None:
+                yield coord, unit
 
     def player_units(self, player: Player) -> Iterable[Tuple[Coord, Unit]]:
         """Iterates over all units belonging to a player."""
         for coord in CoordPair.from_dim(self.options.dim).iter_rectangle():
             unit = self.get(coord)
             if unit is not None and unit.player == player:
-                yield (coord, unit)
+                yield coord, unit
 
     def is_finished(self) -> bool:
         """Check if the game is over."""
@@ -300,14 +333,14 @@ class Game:
                 return Player.Attacker
         return Player.Defender
 
-    def move_candidates(self) -> Iterable[CoordPair]:
+    def move_candidates(self, player: Player) -> Iterable[CoordPair]:
         """Generate valid move candidates for the next player."""
         move = CoordPair()
-        for (src, _) in self.player_units(self.next_player):
+        for (src, _) in self.player_units(player):
             move.src = src
             for dst in src.iter_adjacent():
                 move.dst = dst
-                if self.is_valid_move(move):
+                if self.is_valid_move(player, move):
                     yield move.clone()
             move.dst = src
             yield move.clone()
@@ -321,12 +354,12 @@ class Game:
         else:
             return (0, None, 0)
 
-    def suggest_move(self) -> CoordPair | None:
+    def suggest_move(self, player: Player) -> CoordPair | None:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
         start_time = datetime.now()
-        #(score, move, avg_depth) = self.random_move()
-        #(score, move, avg_depth) = self.minimax(self.clone(self))
-        (score, move) = MiniMax.minimax(self.clone(self))
+        # (score, move, avg_depth) = self.random_move()
+        # (score, move, avg_depth) = self.minimax(self.clone(self))
+        (score, move) = minimax(self, player)
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
@@ -388,7 +421,7 @@ class Game:
         except Exception as error:
             print(f"Broker error: {error}")
         return None
-        
+
     def is_in_battle(self, coord: Coord):
         """NEW: Checks if the unit is in combat"""
         tmp = Coord(coord.row, coord.col)
@@ -410,16 +443,16 @@ class Game:
 
     def valid_direction(self, coords: CoordPair):
         """NEW: checks if the unit type is allowed to go in that direction"""
-        #checks unit types are AI, Firewall or Program
+        # checks unit types are AI, Firewall or Program
         if self.get(coords.src).type is not UnitType.Tech and self.get(coords.src).type is not UnitType.Virus:
-            #checks for and ignores self destruction cases
+            # checks for and ignores self destruction cases
             if self.get(coords.src) == self.get(coords.dst):
                 return True
-            #checks if it's an attacker and calculates accordingly
+            # checks if it's an attacker and calculates accordingly
             if self.get(coords.src).player == Player.Attacker:
                 if coords.dst.col == (coords.src.col - 1) or coords.dst.row == (coords.src.row - 1):
                     return False
-            #checks if it's a defender and calculates accordingly
+            # checks if it's a defender and calculates accordingly
             if self.get(coords.src).player == Player.Defender:
                 if coords.dst.col == (coords.src.col + 1) or coords.dst.row == (coords.src.row + 1):
                     return False
@@ -468,4 +501,182 @@ class Game:
         self.mod_health(coord, -10)
         self.remove_dead(coord)
 
+    def print_settings(self, output: Output):
+        output.print("Current settings:\n")
+        output.print("Timeout in seconds: " + str(self.options.max_time) + "\n")
+        output.print("Max number of Turns: " + str(self.options.max_turns) + "\n")
+        output.print("Alpha Beta is on: " + str(self.options.alpha_beta) + "\n")
+        output.print("Game Type: " + str(self.options.game_type) + "\n")
 
+        if self.options.game_type == GameType.CompVsComp:
+            output.print("Attacker Heuristic: " + self.options.heuristic_attacker + "\n")
+            output.print("Defender Heuristic: " + self.options.heuristic_defender + "\n")
+        if self.options.game_type == GameType.AttackerVsComp:
+            output.print("Defender Heuristic: " + self.options.heuristic_defender + "\n")
+        if self.options.game_type == GameType.CompVsDefender:
+            output.print("Attacker Heuristic: " + self.options.heuristic_attacker + "\n")
+
+
+##############################################################################################################
+
+
+class Node:
+    game_state: Game = None
+    player: Player = Player.Attacker
+    move: CoordPair
+    parent: Node = None
+    successors: list[Node | None]
+    depth: int = 0
+    score = 0
+    alpha = MIN_HEURISTIC_SCORE
+    beta = MAX_HEURISTIC_SCORE
+
+    def __init__(self, game_state: Game, player: Player, move: CoordPair, parent: Node, depth: int, score: int = 0):
+        self.game_state = game_state
+        self.player = player
+        self.move = move
+        self.parent = parent
+        self.depth = depth
+        self.score = score
+        self.successors = []
+        return
+
+    def get_successors(self) -> list[Node]:
+        next_player = self.player.next()
+        for move in list(self.game_state.move_candidates(self.player)):
+            new_game_state = self.game_state.clone()
+            new_game_state.perform_move(self.player, move)
+            successor = Node(new_game_state, next_player, move, self, self.depth + 1)
+            self.successors.append(successor)
+
+        return self.successors
+
+    # returns true hits the depth limit
+    def at_max_depth(self):
+        return self.depth >= self.game_state.options.max_depth
+
+    # returns true if no children, returns false if it has children
+    def is_terminal(self, max_depth: int):
+        return len(self.successors) == 0
+
+
+##############################################################################################################
+
+
+def minimax(current_game_state: Game, current_player: Player) -> (int, CoordPair):
+    # TODO max or min based on defender or attacker
+
+    root = Node(current_game_state, current_game_state.next_player, None, None, 0)
+    # grabs the best value from leaf nodes
+    max_value(root, current_player)
+    # grabs the children of the node to check for the best move
+
+    for successor in root.successors:
+        if successor.score == root.score:
+            best_move = successor.move
+            break
+
+    # score, move, avg_depth
+    return root.score, best_move
+
+
+def max_value(node: Node, current_player: Player) -> Node:
+    if node.at_max_depth() or len(node.get_successors()) == 0:
+        node.score = get_utility(node, current_player)
+        return node
+
+    value = MIN_HEURISTIC_SCORE
+
+    for s in node.successors:
+        value = max(value, min_value(s, current_player).score)
+        #TODO implement alpha beta here, break loop if alphabeta (use parent node)
+
+    node.score = value
+    #print("Player: " + node.player.name + ", Max Score: " + str(node.score))
+
+    # propagates values up the tree
+    return node
+
+
+def min_value(node: Node, current_player: Player) -> Node:
+    if node.at_max_depth() or len(node.get_successors()) == 0:
+        node.score = get_utility(node, current_player)
+        return node
+
+    value = MAX_HEURISTIC_SCORE
+
+    for s in node.successors:
+        value = min(value, max_value(s, current_player).score)
+        # TODO implement alpha beta here, break loop if alphabeta (use parent node)
+
+    node.score = value
+    #print("Player: " + node.player.name + ", Min Score: " + str(node.score))
+
+    # propagates values up the tree
+    return node
+
+
+def get_utility(node: Node, current_player: Player) -> int:
+    assert node is not None
+
+    #TODO different heuristics based on attacker/defender
+    if current_player == Player.Attacker:
+        heuristic = node.game_state.options.heuristic_attacker
+    else:
+        heuristic = node.game_state.options.heuristic_defender
+
+    match heuristic:
+        case "e0":
+            utility = heuristic_e0(node.game_state, current_player)
+        case "e1":
+            utility = heuristic_e1(node.game_state, current_player)
+        case "e2":
+            utility = heuristic_e2(node.game_state, current_player)
+        case _:
+            utility = heuristic_e0(node.game_state, current_player)
+
+    #print("\tMove: " + node.move.to_string() + ", Depth: " + str(node.depth) + ", Score: " + str(utility))
+    return utility
+
+
+# grabs the heuristic score from the proper heuristic
+def heuristic_e0(game_state: Game, current_player: Player) -> int:
+    heuristic_score = 0
+
+    for u in game_state.get_units():
+        coord = u[0]
+        unit = u[1]
+        if unit.player is current_player:
+            heuristic_score += UNIT_HEURISTIC[unit.type.value]
+        else:
+            heuristic_score -= UNIT_HEURISTIC[unit.type.value]
+
+    return heuristic_score
+
+
+# grabs the heuristic score from the proper heuristic
+def heuristic_e1(game_state: Game, current_player: Player) -> int:
+    heuristic_score = 0
+
+    for u in game_state.get_units():
+        coord = u[0]
+        unit = u[1]
+        if unit.player is current_player:
+            heuristic_score += round(((unit.MAX_HEALTH / 2) + ((unit.health / unit.MAX_HEALTH) / 2)) * UNIT_HEURISTIC[unit.type.value])
+        else:
+            heuristic_score -= round(((unit.MAX_HEALTH / 2) + ((unit.health / unit.MAX_HEALTH) / 2)) * UNIT_HEURISTIC[unit.type.value])
+
+    return heuristic_score
+
+def heuristic_e2(game_state: Game, current_player: Player) -> int:
+    heuristic_score = 0
+
+    for u in game_state.get_units():
+        coord = u[0]
+        unit = u[1]
+        if unit.player is current_player:
+            heuristic_score += round(((unit.MAX_HEALTH / 2) + ((unit.health / unit.MAX_HEALTH) / 2)) * UNIT_HEURISTIC[unit.type.value])
+        else:
+            heuristic_score -= round(((unit.MAX_HEALTH / 2) + ((unit.health / unit.MAX_HEALTH) / 2)) * UNIT_HEURISTIC[unit.type.value])
+
+    return heuristic_score
