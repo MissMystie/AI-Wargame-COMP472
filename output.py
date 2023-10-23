@@ -19,6 +19,7 @@ class Output:
 
     def print(self, line: str):
         if line is not None:
+            print(line)
             self.file.write(line + "\n")
             self.file.flush()
         return

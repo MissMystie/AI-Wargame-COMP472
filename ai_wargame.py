@@ -58,13 +58,10 @@ def main():
 
     # the main game loop
     while True:
-        print()
-        print(game)
-        output.print(game.to_string() + "\n")
+        output.print("\n" + game.to_string())
         winner = game.has_winner()
 
         if winner is not None:
-            print(f"{winner.name} wins!")
             output.print(f"{winner.name} wins!")
             break
 

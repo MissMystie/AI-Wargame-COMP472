@@ -16,7 +16,6 @@ from player import Player, Unit, UnitType
 MAX_HEURISTIC_SCORE = 2000000000
 MIN_HEURISTIC_SCORE = -2000000000
 
-
 class GameType(Enum):
     AttackerVsDefender = 0
     AttackerVsComp = 1
@@ -264,9 +263,7 @@ class Game:
                     else:
                         (success, result) = (False, "invalid move")
 
-                    print(f"Broker {player.name}: ", end='')
-                    print(result)
-                    output.print(player.name + ": " + result)
+                    output.print(f"Broker {player.name} : " + result)
                     if success:
                         self.next_turn()
                         break
@@ -279,10 +276,9 @@ class Game:
                 else:
                     (success, result) = (False, "invalid move")
 
-                output.print(player.name + ": " + result)
                 if success:
-                    print(f"Player {player.name}: ", end='')
-                    print(result)
+                    output.print(f"Player {player.name} : " + result)
+
                     self.next_turn()
                     break
                 else:
@@ -290,17 +286,15 @@ class Game:
 
     def computer_turn(self, player: Player, output: Output) -> CoordPair | None:
         """Computer plays a move."""
-        mv = self.suggest_move(player)
+        mv = self.suggest_move(player, output)
         if mv is not None:
             if self.is_valid_move(player, mv):
                 (success, result) = self.perform_move(player, mv)
             else:
                 (success, result) = (False, "invalid move")
 
-            output.print(player.name + ": " + result)
             if success:
-                print(f"Computer {player.name}: ", end='')
-                print(result)
+                output.print(f"Computer {player.name} : " + result)
                 self.next_turn()
         return mv
 
@@ -354,7 +348,7 @@ class Game:
         else:
             return (0, None, 0)
 
-    def suggest_move(self, player: Player) -> CoordPair | None:
+    def suggest_move(self, player: Player, output: Output) -> CoordPair | None:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
         start_time = datetime.now()
         # (score, move, avg_depth) = self.random_move()
@@ -370,15 +364,18 @@ class Game:
             print(f"Heuristic has timed out by {(elapsed_seconds - self.options.max_time):0.1f} seconds!")
             return move
         self.stats.total_seconds += elapsed_seconds
-        print(f"Heuristic score: {score}")
-        print(f"Evals per depth: ", end='')
-        for k in sorted(self.stats.evaluations_per_depth.keys()):
-            print(f"{k}:{self.stats.evaluations_per_depth[k]} ", end='')
-        print()
+
         total_evals = sum(self.stats.evaluations_per_depth.values())
+
+        output.print(f"Heuristic score: {score}")
+        output.print(f"Evals per depth: ")
+        for k in sorted(self.stats.evaluations_per_depth.keys()):
+            output.print(f"\t{k}:{self.stats.evaluations_per_depth[k]}, "
+                         f"{round(self.stats.evaluations_per_depth[k]/total_evals * 100, 2)}%")
         if self.stats.total_seconds > 0:
-            print(f"Eval perf.: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
-        print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+            output.print(f"Eval perf.: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
+        output.print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+
         return move
 
     def post_move_to_broker(self, move: CoordPair):
@@ -650,6 +647,11 @@ def get_utility(node: Node, current_player: Player) -> int:
             utility = heuristic_e2(node.game_state, current_player)
         case _:
             utility = heuristic_e0(node.game_state, current_player)
+
+    if node.depth in node.game_state.stats.evaluations_per_depth:
+        node.game_state.stats.evaluations_per_depth[node.depth] += 1
+    else:
+        node.game_state.stats.evaluations_per_depth[node.depth] = 1
 
     #print("\tMove: " + node.move.to_string() + ", Depth: " + str(node.depth) + ", Score: " + str(utility))
     return utility
