@@ -167,15 +167,19 @@ class Game:
 
         if target is None:
             if self.is_restricted_movement(coords.src):
-                return False #"invalid move, engaged in battle"
+                print("engaged in battle")
+                return False
             # makes a extra check for if the unit can move in that direction
-            if self.valid_direction(coords):
-                return False #f"invalid move, {self.get(coords.src).type} can't move this way"
+            if not self.valid_direction(coords):
+                print(f"{self.get(coords.src).type} can't move this way")
+                return False
         elif target is not source and target.player is player:
             if target.health == target.MAX_HEALTH:
-                return False #"invalid move, target is at full health"
+                print("target is at full health")
+                return False
             elif source.repair_amount(target) <= 0:
-                return False #"invalid move, repair amount is 0"
+                print("repair amount is 0")
+                return False
 
         return True
 
@@ -449,26 +453,30 @@ class Game:
 
     def is_restricted_movement(self, coord: Coord):
         """NEW: Checks if the unit is able to move"""
+        unit = self.get(coord)
         if self.is_in_battle(coord) is True:
-            if self.get(coord).type is not UnitType.Tech and self.get(coord).type is not UnitType.Virus:
+            if (unit.type is UnitType.AI) or (unit.type is UnitType.Firewall) or (unit.type is UnitType.Program):
                 return True
         return False
 
     def valid_direction(self, coords: CoordPair):
         """NEW: checks if the unit type is allowed to go in that direction"""
+        # checks for and ignores self destruction cases
+        if self.get(coords.src) == self.get(coords.dst):
+            return True
+
         # checks unit types are AI, Firewall or Program
-        if self.get(coords.src).type is not UnitType.Tech and self.get(coords.src).type is not UnitType.Virus:
-            # checks for and ignores self destruction cases
-            if self.get(coords.src) == self.get(coords.dst):
-                return True
+        unit = self.get(coords.src)
+        if (unit.type is UnitType.AI) or (unit.type is UnitType.Firewall) or (unit.type is UnitType.Program):
             # checks if it's an attacker and calculates accordingly
-            if self.get(coords.src).player == Player.Attacker:
-                if coords.dst.col == (coords.src.col - 1) or coords.dst.row == (coords.src.row - 1):
-                    return False
-            # checks if it's a defender and calculates accordingly
-            if self.get(coords.src).player == Player.Defender:
+            if unit.player == Player.Attacker:
                 if coords.dst.col == (coords.src.col + 1) or coords.dst.row == (coords.src.row + 1):
                     return False
+            # checks if it's a defender and calculates accordingly
+            if unit.player == Player.Defender:
+                if coords.dst.col == (coords.src.col - 1) or coords.dst.row == (coords.src.row - 1):
+                    return False
+
         return True
 
     def attack(self, coords: CoordPair) -> bool:
