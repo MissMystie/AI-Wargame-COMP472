@@ -14,11 +14,17 @@ param, valid input type, description
 
 --max_time, float, maximum search time
     
---game_type, str, game types: auto|attacker|defender|manual (PARTIALLY IMPLEMENTED (D2 will implement the rest))
+--game_type, str, game types: auto|attacker|defender|manual
 
---broker, str, play via a game broker (BROKER NOT IMPLEMENTED YET (D2 will implement this param))
+--broker, str, play via a game broker
 
 --max_turns, int, maximum number of turns
+
+--heuristic_attacker, str, euristics: e0|e1|e2
+
+--heuristic_defender, str, euristics: e0|e1|e2 
+
+--alpha_beta, bool, will alpha beta be on?
 
 ## How to play
 
