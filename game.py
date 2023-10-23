@@ -167,18 +167,18 @@ class Game:
 
         if target is None:
             if self.is_restricted_movement(coords.src):
-                print("engaged in battle")
+                #print("engaged in battle")
                 return False
             # makes a extra check for if the unit can move in that direction
             if not self.valid_direction(coords):
-                print(f"{self.get(coords.src).type} can't move this way")
+                #print(f"{self.get(coords.src).type} can't move this way")
                 return False
         elif target is not source and target.player is player:
             if target.health == target.MAX_HEALTH:
-                print("target is at full health")
+                #print("target is at full health")
                 return False
             elif source.repair_amount(target) <= 0:
-                print("repair amount is 0")
+                #print("repair amount is 0")
                 return False
 
         return True
