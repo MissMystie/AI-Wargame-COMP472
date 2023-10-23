@@ -753,7 +753,7 @@ def heuristic_e2(game_state: Game, current_player: Player) -> int:
         if units is AI_coord:
             heuristic_score += (10 * AI_unit.health)
         else:
-            heuristic_score += round(((abs(AI_coord.col - units.col) + abs(AI_coord.row - units.row))) + max(3, allies) - min(2, allies)
+            heuristic_score += round((-(abs(AI_coord.col - units.col) + abs(AI_coord.row - units.row))) + max(3, allies) - min(2, allies)
                                       + 5 * player_total_hp + 10 * AI_unit.health + 20 * allies_hp)
         allies, player_total_hp, allies_hp = 0, 0, 0
     
@@ -764,7 +764,7 @@ def heuristic_e2(game_state: Game, current_player: Player) -> int:
         if units is Enemy_AI_coord:
             heuristic_score -= (10 * Enemy_AI_unit.health)
         else:
-            heuristic_score -= round((abs(Enemy_AI_coord.col - units.col) + abs(Enemy_AI_coord.row - units.row)) + max(3, enemies) - min(2, enemies)
+            heuristic_score -= round(-(abs(Enemy_AI_coord.col - units.col) + abs(Enemy_AI_coord.row - units.row)) + max(3, enemies) - min(2, enemies)
                                       + 5 * enemy_total_hp + 10 * Enemy_AI_unit.health + 20 * enemy_hp)
         enemy_hp, enemy_total_hp, enemies = 0, 0, 0
     return heuristic_score
