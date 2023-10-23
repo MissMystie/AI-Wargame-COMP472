@@ -703,13 +703,60 @@ def heuristic_e1(game_state: Game, current_player: Player) -> int:
 
 def heuristic_e2(game_state: Game, current_player: Player) -> int:
     heuristic_score = 0
+    AI_coord = None
+    AI_unit = None
+    player_total_hp = 0
+    Enemy_AI_coord = None
+    Enemy_AI_unit = None
+    enemy_hp = 0
+    enemy_total_hp = 0
+    enemies = 0
+    allies = 0
+    allies_hp = 0
+    player_units = []
+    enemy_unit = []
 
-    for u in game_state.get_units():
-        coord = u[0]
-        unit = u[1]
+    for unit in game_state.get_units():
+        coord, unit = unit
         if unit.player is current_player:
-            heuristic_score += round(((unit.MAX_HEALTH / 2) + ((unit.health / unit.MAX_HEALTH) / 2)) * UNIT_HEURISTIC[unit.type.value])
+            if unit.type is UnitType.AI:
+                AI_coord = coord
+                AI_unit = unit
+            player_total_hp += unit.health
+            player_units.append(coord)
         else:
-            heuristic_score -= round(((unit.MAX_HEALTH / 2) + ((unit.health / unit.MAX_HEALTH) / 2)) * UNIT_HEURISTIC[unit.type.value])
+            if unit.type is UnitType.AI:
+                Enemy_AI_coord = coord
+                Enemy_AI_unit = unit
+            enemy_total_hp += unit.health
+            enemy_unit.append(coord)
 
+    if Enemy_AI_coord == None:
+        heuristic_score == MAX_HEURISTIC_SCORE
+        return heuristic_score
+    if AI_coord == None:
+        heuristic_score = MIN_HEURISTIC_SCORE
+        return heuristic_score
+
+    for units in player_units:
+        if units.iter_range(1) == player_units:
+            allies_hp += units.health
+            allies += 1
+        if units is AI_coord:
+            heuristic_score += (10 * AI_unit.health)
+        else:
+            heuristic_score += round(((abs(AI_coord.col - units.col) + abs(AI_coord.row - units.row))) + max(3, allies) - min(2, allies)
+                                      + 5 * player_total_hp + 10 * AI_unit.health + 20 * allies_hp)
+        allies, player_total_hp, allies_hp = 0, 0, 0
+    
+    for units in enemy_unit:
+        if units.iter_range(1) == enemy_unit:
+            enemy_hp = enemy_hp + units.health
+            enemies = enemies + 1
+        if units is Enemy_AI_coord:
+            heuristic_score -= (10 * Enemy_AI_unit.health)
+        else:
+            heuristic_score -= round((abs(Enemy_AI_coord.col - units.col) + abs(Enemy_AI_coord.row - units.row)) + max(3, enemies) - min(2, enemies)
+                                      + 5 * enemy_total_hp + 10 * Enemy_AI_unit.health + 20 * enemy_hp)
+        enemy_hp, enemy_total_hp, enemies = 0, 0, 0
     return heuristic_score
