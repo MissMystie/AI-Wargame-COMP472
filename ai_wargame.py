@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--max_turns', type=int, help='maximum number of turns')
     parser.add_argument('--heuristic_attacker', type=str, help='minimax heuristic: e0|e1|e2')
     parser.add_argument('--heuristic_defender', type=str, help='minimax heuristic: e0|e1|e2')
+    parser.add_argument('--alpha_beta', type=str, help='is alpha-beta pruning enabled')
     args = parser.parse_args()
 
     # parse the game type
@@ -45,12 +46,14 @@ def main():
         options.heuristic_attacker = args.heuristic_attacker
     if args.heuristic_defender is not None:
         options.heuristic_defender = args.heuristic_defender
+    if args.alpha_beta is not None:
+        options.alpha_beta = (args.alpha_beta.lower() == 'true')
 
     # create a new game
     game = Game(options=options)
 
     # create Trace file and loaded up with starting info
-    output = Output(str(game_type), str(options.alpha_beta), str(options.max_time), str(options.max_turns))
+    output = Output(str(options.alpha_beta), str(options.max_time), str(options.max_turns))
     game.print_settings(output)
 
     # the main game loop

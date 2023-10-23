@@ -10,7 +10,7 @@ class Output:
     file: TextIO | None
 
 
-    def __init__(self, game_type: str, alpha_beta: str, max_time: str, max_turns: str):
+    def __init__(self, alpha_beta: str, max_time: str, max_turns: str):
 
         filename = "gameTrace-" + alpha_beta + "-" + max_time + "-" + max_turns + "." + self.FILE_EXTENSION
         self.file = open(self.OUTPUT_PATH + filename, "w+")

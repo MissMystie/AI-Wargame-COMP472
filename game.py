@@ -42,7 +42,7 @@ class Options:
     min_depth: int | None = 2
     max_time: float | None = 5.0
     game_type: GameType = GameType.AttackerVsDefender
-    alpha_beta: bool = True
+    alpha_beta: bool = False
     max_turns: int | None = 100
     randomize_moves: bool = True
     broker: str | None = None
@@ -530,9 +530,9 @@ class Node:
     score = 0
     alpha = MIN_HEURISTIC_SCORE
     beta = MAX_HEURISTIC_SCORE
-    alphaBeta: bool = True
 
-    def __init__(self, game_state: Game, player: Player, move: CoordPair, parent: Node, depth: int, score: int = 0, alpha: int = alpha, beta: int = beta, alphaBeta: bool = True):
+    def __init__(self, game_state: Game, player: Player, move: CoordPair, parent: Node, depth: int, score: int = 0,
+                 alpha: int = MIN_HEURISTIC_SCORE, beta: int = MAX_HEURISTIC_SCORE):
         self.game_state = game_state
         self.player = player
         self.move = move
@@ -541,7 +541,6 @@ class Node:
         self.score = score
         self.alpha = alpha
         self.beta = beta
-        self.alphaBeta = alphaBeta
         self.successors = []
         return
 
@@ -570,35 +569,32 @@ class Node:
 def minimax(current_game_state: Game, current_player: Player) -> (int, CoordPair):
     # TODO max or min based on defender or attacker
 
-    #checking if AlphaBeta is true
-    alphaBeta = current_game_state.options.alpha_beta
-    root = Node(current_game_state, current_game_state.next_player, None, None, 0, alphaBeta)
+    root = Node(current_game_state, current_game_state.next_player, None, None, 0)
 
     # grabs the best value from leaf nodes
-    max_value(root, current_player)
+    max_value(root, current_player, current_game_state.options.alpha_beta)
     # grabs the children of the node to check for the best move
     for successor in root.successors:
-        print(successor.score)
         if successor.score == root.score:
             best_move = successor.move
-            #break
+            break
 
     # score, move, avg_depth
     return root.score, best_move
 
 
-def max_value(node: Node, current_player: Player) -> Node:
+def max_value(node: Node, current_player: Player, alpha_beta: bool) -> Node:
     if node.at_max_depth() or len(node.get_successors()) == 0:
         node.score = get_utility(node, current_player)
         return node
-    if node.parent is not None and node.parent.alphaBeta == True:
-        node.alphaBeta = node.parent.alphaBeta #if alphabeta is on or off
-    node.alpha = MIN_HEURISTIC_SCORE #alpha
+
+    if node.parent is not None:
+        node.alpha = node.parent.alpha #alpha
 
     for s in node.successors:
-        node.alpha = max(node.alpha, min_value(s, current_player).score)
+        node.alpha = max(node.alpha, min_value(s, current_player, alpha_beta).score)
         #TODO implement alpha beta here, break loop if alphabeta (use parent node)
-        if node.parent is not None and node.alpha >= node.parent.beta and node.alphaBeta == True: #if enabled & alpha > beta
+        if alpha_beta and node.parent is not None and node.alpha >= node.parent.beta: #if enabled & alpha > beta
             break
 
     node.score = node.alpha
@@ -608,20 +604,19 @@ def max_value(node: Node, current_player: Player) -> Node:
     return node
 
 
-def min_value(node: Node, current_player: Player) -> Node:
+def min_value(node: Node, current_player: Player, alpha_beta: bool) -> Node:
     if node.at_max_depth() or len(node.get_successors()) == 0:
         node.score = get_utility(node, current_player)
         return node
 
-    if node.parent is not None and node.parent.alphaBeta == True:
-        node.alphaBeta = node.parent.alphaBeta #if alphabeta is on or off
-    node.beta = MAX_HEURISTIC_SCORE #beta
+    if node.parent is not None:
+        node.beta = node.parent.beta #beta
 
     for s in node.successors:
-        node.beta = min(node.beta, max_value(s, current_player).score) # beta
+        node.beta = min(node.beta, max_value(s, current_player, alpha_beta).score) # beta
         # TODO implement alpha beta here, break loop if alphabeta (use parent node) 
-        if node.parent is not None and node.parent.alpha >= node.beta and node.alphaBeta == True: #if enabled & alpha > beta
-            return node #immediately propagate up the tree
+        if alpha_beta and node.parent is not None and node.parent.alpha >= node.beta: #if enabled & alpha > beta
+            break
 
     node.score = node.beta
     #print("Player: " + node.player.name + ", Min Score: " + str(node.score))
@@ -633,7 +628,6 @@ def min_value(node: Node, current_player: Player) -> Node:
 def get_utility(node: Node, current_player: Player) -> int:
     assert node is not None
 
-    #TODO different heuristics based on attacker/defender
     if current_player == Player.Attacker:
         heuristic = node.game_state.options.heuristic_attacker
     else:
@@ -668,7 +662,6 @@ def heuristic_e0(game_state: Game, current_player: Player) -> int:
     return heuristic_score
 
 
-# grabs the heuristic score from the proper heuristic
 def heuristic_e1(game_state: Game, current_player: Player) -> int:
     heuristic_score = 0
 
@@ -681,6 +674,7 @@ def heuristic_e1(game_state: Game, current_player: Player) -> int:
             heuristic_score -= round(((unit.MAX_HEALTH / 2) + ((unit.health / unit.MAX_HEALTH) / 2)) * UNIT_HEURISTIC[unit.type.value])
 
     return heuristic_score
+
 
 def heuristic_e2(game_state: Game, current_player: Player) -> int:
     heuristic_score = 0
