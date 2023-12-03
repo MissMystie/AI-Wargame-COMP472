@@ -380,6 +380,7 @@ class Game:
         for k in sorted(self.stats.evaluations_per_depth.keys()):
             output.print(f"\t{k}:{self.stats.evaluations_per_depth[k]}, "
                          f"{round(self.stats.evaluations_per_depth[k]/total_evals * 100, 2)}%")
+        output.print(f"Evaluations: {total_evals}")
         if self.stats.total_seconds > 0:
             output.print(f"Eval perf.: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
         output.print(f"Average branching factor: {self.stats.averageBranchingFactor()}")

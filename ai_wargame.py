@@ -5,6 +5,7 @@ import argparse
 from game import Game, GameType, Player, Options
 from output import Output
 
+
 def main():
     # parse command line arguments
     parser = argparse.ArgumentParser(
